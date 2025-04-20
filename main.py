@@ -14,7 +14,7 @@ CALENDAR_ID = os.environ.get('CALENDAR_ID', 'd5fbe1b8c27282a1f8b781db726404619d4
 JSON_DATA_FILE = os.environ.get('JSON_DATA_FILE', '/Users/cman/Desktop/hand_stitched_cranes/dev/trail_running_race_calendar/races.json')
 # Unique identifier prefix for events created by this script
 # Helps in querying only the events managed by this script
-EVENT_ID_PREFIX = "trailcal_"
+EVENT_ID_PREFIX = "trailcal"
 
 SCOPES = ['https://www.googleapis.com/auth/calendar']
 
