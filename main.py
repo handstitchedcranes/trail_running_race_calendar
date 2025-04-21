@@ -108,7 +108,6 @@ def get_existing_events(service, calendar_id, time_min_str):
         logging.error(f"An API error occurred while fetching events: {error}")
         return {} # Return empty dict on error
 
-
 # --- Main Processing Logic ---
 
 def sync_calendar():
@@ -119,16 +118,22 @@ def sync_calendar():
 
     races = load_race_data(JSON_DATA_FILE)
     if not races:
+        # Decide if you want to potentially delete EVERYTHING if JSON is missing/empty
+        # For safety, we'll just return here.
+        logging.error("Race data could not be loaded. Aborting sync to prevent accidental deletions.")
         return
 
     # Determine time range for querying existing events (e.g., from start of current month)
+    # Use a date far in the past to ensure we catch all relevant prefixed events
+    # or rely on the prefix filtering primarily. Let's start from beginning of year for safety.
     now = datetime.now().astimezone() # Use timezone-aware datetime
-    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    time_min_iso = start_of_month.isoformat() 
-    
-    existing_events = get_existing_events(service, CALENDAR_ID, time_min_iso)
-    processed_event_ids = set()
+    start_of_year = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    time_min_iso = start_of_year.isoformat()
 
+    existing_events = get_existing_events(service, CALENDAR_ID, time_min_iso)
+    processed_event_ids = set() # Holds IDs generated from current JSON data
+
+    # --- Process Races from JSON (Create/Update) ---
     for race in races:
         try:
             # --- Basic Data Validation ---
@@ -146,13 +151,13 @@ def sync_calendar():
 
             # --- Prepare Event Body ---
             event_id = generate_event_id(race_name, start_str)
-            processed_event_ids.add(event_id)
+            processed_event_ids.add(event_id) # Add ID from JSON to our set
 
-            description_content = f"Trail Running Event: {race_name}"
+            description_content = f"Event: {race_name}"
             if livestream:
                 description_content += f"\nLivestream: {livestream}"
             if description_extra:
-                 description_content += f"\n{description_extra}"
+                 description_content += f"\nDescription: {description_extra}"
 
             event_body = {
                 'summary': race_name,
@@ -167,35 +172,28 @@ def sync_calendar():
                 },
                 'description': description_content,
                 'location': location,
-                # You can add extended properties for better tracking/querying
-                # 'extendedProperties': {
-                #     'private': {
-                #         'source': 'trail-running-calendar-app',
-                #         'race_id': race.get('unique_race_id') # If you have one in JSON
-                #     }
-                # }
             }
 
             # --- Check if Event Exists and Compare ---
             existing_event = existing_events.get(event_id)
 
             if existing_event:
-                # Compare relevant fields (summary, start, end, description, location)
-                # This comparison logic might need refinement based on what changes you expect
+                # --- Update Logic ---
                 needs_update = False
+                # Simple comparison (more robust comparison might be needed)
                 if (existing_event.get('summary') != event_body['summary'] or
-                    existing_event.get('start') != event_body['start'] or
-                    existing_event.get('end') != event_body['end'] or
+                    existing_event.get('start') != event_body['start'] or # Compares dicts
+                    existing_event.get('end') != event_body['end'] or     # Compares dicts
                     existing_event.get('description') != event_body['description'] or
                     existing_event.get('location') != event_body['location']):
                      needs_update = True
-                
+
                 if needs_update:
                     logging.info(f"Updating event: {race_name} (ID: {event_id})")
                     try:
                         updated_event = service.events().update(
-                            calendarId=CALENDAR_ID, 
-                            eventId=event_id, 
+                            calendarId=CALENDAR_ID,
+                            eventId=event_id,
                             body=event_body
                         ).execute()
                         logging.info(f'Event updated: {updated_event.get("htmlLink")}')
@@ -209,37 +207,69 @@ def sync_calendar():
                 logging.info(f"Creating new event: {race_name} (ID: {event_id})")
                 try:
                     created_event = service.events().insert(
-                        calendarId=CALENDAR_ID, 
+                        calendarId=CALENDAR_ID,
                         body=event_body
                     ).execute()
                     logging.info(f'Event created: {created_event.get("htmlLink")}')
                 except HttpError as error:
-                    # Handle potential ID conflicts explicitly (though unlikely with good ID generation)
-                    if error.resp.status == 409: 
-                         logging.warning(f"Event ID {event_id} conflict, likely already exists but wasn't fetched. Consider widening query range or using extended properties.")
+                    if error.resp.status == 409:
+                         logging.warning(f"Event ID {event_id} conflict. Assuming it exists.")
+                         # Add the ID from the conflict back into existing_events if needed,
+                         # or just ensure it's treated as processed.
+                         # Since it's already in processed_event_ids, it won't be deleted.
                     else:
                          logging.error(f'Error creating event for {race_name}: {error}')
 
         except Exception as e:
             logging.error(f"Failed to process race {race.get('name', 'Unknown')}: {e}", exc_info=True)
-            
-    # --- Optional: Delete Orphaned Events ---
-    # Events in the calendar (with our prefix) that are no longer in the JSON feed.
-    # Be CAREFUL with automated deletion. Add checks/flags if needed.
-    # Consider if races only get added, or if old ones should be removed.
-    # If removing, only remove events within a specific future window maybe?
-    
-    # for event_id, event in existing_events.items():
-    #     if event_id not in processed_event_ids:
-    #         # Optional: Add checks, e.g., only delete if event start time is in the future
-    #         event_start = datetime.fromisoformat(event['start'].get('dateTime'))
-    #         if event_start > now: 
-    #             logging.warning(f"Deleting orphaned event: {event.get('summary')} (ID: {event_id})")
-    #             try:
-    #                 service.events().delete(calendarId=CALENDAR_ID, eventId=event_id).execute()
-    #             except HttpError as error:
-    #                 logging.error(f"Error deleting event {event_id}: {error}")
 
+    # --- Delete Orphaned Events ---
+    logging.info("Checking for orphaned events to delete...")
+    deleted_count = 0
+    # Iterate through the events we found *in the calendar*
+    for event_id, event in existing_events.items():
+        # Check if the ID from the calendar event is NOT in the set of IDs from the JSON file
+        if event_id not in processed_event_ids:
+            # This event is orphaned (exists in calendar, not in JSON)
+
+            # Optional Safety Check: Only delete future events
+            try:
+                # Attempt to parse the start dateTime
+                event_start_str = event.get('start', {}).get('dateTime')
+                if event_start_str:
+                    event_start = datetime.fromisoformat(event_start_str)
+                    # Compare timezone-aware datetime objects
+                    if event_start <= now:
+                        logging.info(f"Skipping deletion of past/ongoing orphaned event: {event.get('summary')} (ID: {event_id})")
+                        continue # Skip to the next event
+                else:
+                     # Handle cases where start dateTime might be missing (unlikely for inserted events)
+                     logging.warning(f"Could not determine start time for event {event_id}; skipping deletion.")
+                     continue
+
+            except ValueError:
+                logging.warning(f"Could not parse start dateTime '{event_start_str}' for event {event_id}; skipping deletion.")
+                continue
+            except Exception as e:
+                 logging.error(f"Error checking start time for event {event_id}: {e}; skipping deletion.")
+                 continue
+
+            # Proceed with deletion
+            logging.warning(f"Deleting orphaned event: {event.get('summary')} (ID: {event_id})")
+            try:
+                service.events().delete(calendarId=CALENDAR_ID, eventId=event_id).execute()
+                deleted_count += 1
+                # Small delay might be prudent if deleting many events rapidly, but usually not necessary
+                # time.sleep(0.1)
+            except HttpError as error:
+                logging.error(f"Error deleting event {event_id}: {error}")
+            except Exception as e:
+                 logging.error(f"Unexpected error deleting event {event_id}: {e}")
+
+    if deleted_count > 0:
+        logging.info(f"Successfully deleted {deleted_count} orphaned events.")
+    else:
+        logging.info("No orphaned events found needing deletion (or only past events found).")
 
 if __name__ == '__main__':
     sync_calendar()

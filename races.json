@@ -1,47 +1,20 @@
 [
     {
-      "name": "Sangre de Cristo Spring Run",
-      "start_dateTime": "2025-05-17T08:00:00-06:00",
-      "end_dateTime": "2025-05-17T13:00:00-06:00",
+      "name": "Leadville Trail 100 Run",
+      "start_dateTime": "2025-08-16T04:00:00-06:00",
+      "end_dateTime": "2025-08-17T10:00:00-06:00",
       "timeZone": "America/Denver",
-      "livestream_link": "https://livestream.example.com/sdcrun2025",
-      "location": "Hyde Memorial State Park, Santa Fe, NM",
-      "description": "15K and 30K options. Challenging climbs through beautiful aspen groves."
+      "livestream_link": "TBD",
+      "location": "Leadville, Colorado, USA",
+      "description": "An iconic 100-mile race through the high-altitude terrain of the Colorado Rockies. Known as the \"Race Across the Sky.\""
     },
     {
-      "name": "Jemez Mountain Trail Races",
-      "start_dateTime": "2025-07-26T06:00:00-06:00",
-      "end_dateTime": "2025-07-26T18:00:00-06:00",
+      "name": "Hardrock Hundred Mile Endurance Run",
+      "start_dateTime": "2025-07-11T06:00:00-06:00",
+      "end_dateTime": "2025-07-13T06:00:00-06:00",
       "timeZone": "America/Denver",
-      "livestream_link": "https://livestream.example.com/jemez2025",
-      "location": "Los Alamos, NM, USA",
-      "description": "Includes 50 Mile, 50K, and 15 Mile distances."
-    },
-    {
-      "name": "Chamonix Alpine Challenge",
-      "start_dateTime": "2025-08-30T05:00:00+02:00",
-      "end_dateTime": "2025-08-30T20:00:00+02:00",
-      "timeZone": "Europe/Paris",
-      "livestream_link": "https://livestream.example.com/chamonix2025",
-      "location": "Chamonix, France",
-      "description": "High-altitude European trail running."
-    },
-    {
-      "name": "Santa Fe Trail Marathon",
-      "start_dateTime": "2025-11-08T07:00:00-07:00",
-      "end_dateTime": "2025-11-08T14:00:00-07:00",
-      "timeZone": "America/Denver",
-      "livestream_link": "https://livestream.example.com/santafetrailmarathon2025",
-      "location": "Santa Fe, NM, USA",
-      "description": "Distance: 26.2 miles. Note: Course map updated on official site."
-    },
-    {
-      "name": "Sedona Red Rocks Ultra",
-      "start_dateTime": "2026-03-14T05:30:00-07:00",
-      "end_dateTime": "2026-03-14T21:30:00-07:00",
-      "timeZone": "America/Phoenix",
-      "livestream_link": "",
-      "location": "Sedona, AZ, USA",
-      "description": "50 mile ultra through stunning red rock landscapes. Livestream TBD."
+      "livestream_link": "TBD",
+      "location": "Silverton, Colorado, USA",
+      "description": "A grueling 100.5-mile race with over 33,000 feet of elevation gain at an average elevation of over 11,000 feet in the rugged San Juan Mountains of Colorado. Known for its extreme difficulty, high altitudes, and the tradition of \"kissing the Hardrock\" (a painted ram's head) at the finish."
     }
   ]
